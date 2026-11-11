@@ -1,0 +1,45 @@
+/* Design tokens. Dark slate control-room theme. A light theme only needs a second block
+   overriding these variables. Severity colours are reserved: never use them for decoration. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces: slate, not black, so video is the brightest thing on screen. */
+  --c-canvas: #0c1118;
+  --c-surface: #121a24;
+  --c-raised: #18212d;
+  --c-overlay: #1f2a38;
+  --c-line: #243042;
+  --c-line-strong: #33435a;
+
+  /* Text */
+  --c-fg: #e7edf4;
+  --c-muted: #a6b3c3;
+  --c-faint: #8594a7;
+
+  /* Severity (reserved) */
+  --c-red: #f0605d;          /* needs a look */
+  --c-red-fg: #ff9e9b;
+  --c-amber: #f2a93b;        /* FYI, unconfirmed, camera issue */
+  --c-amber-fg: #ffcb74;
+  --c-blue: #5a9cff;         /* guard patrol */
+  --c-blue-fg: #a3c8ff;
+  --c-grey: #7c8a9c;         /* ignored */
+  --c-grey-fg: #a6b3c3;
+
+  /* Status: healthy / all clear (not a severity) */
+  --c-ok: #3ecf8e;
+  --c-ok-fg: #8de8bd;
+
+  /* AI-written text marker */
+  --c-ai: #b9a2ff;
+
+  /* Focus ring */
+  --c-focus: #e7edf4;
+
+  --radius-card: 14px;
+  --shadow-pop: 0 12px 40px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --rail-w: 360px;
+  --sidebar-w: 240px;
+  --topbar-h: 56px;
+  --tabbar-h: 64px;
+}

@@ -1,35 +1,53 @@
-# Demo site 2: closed for the weekend, so armed all day (from == to).
-# Same scenes as Ridgeview but the original daylight footage.
+# Demo site 2: an unguarded plant yard.
+# Tue 10 Nov 2026: 4:42pm someone tapes over the office pole camera (seen from the car park
+# camera), and the pole camera stays covered; 5:00pm lock-up and box truck asset check; 10:40pm
+# machinery working on the earthworks ridge while armed; a fox, two coyotes and windblown rain
+# overnight (ignored); 6:30am the box truck is checked again.
 id: hillcrest
-name: Hillcrest Civil depot, weekend shutdown (demo)
-armed: {from: "00:00", to: "00:00"}
-notes: Depot closed Saturday and Sunday. Armed all weekend.
+name: Hillcrest Plant Yard
+address_hint: Hillcrest, NSW
+timezone: Australia/Sydney
+demo: true
+armed: {from: "17:00", to: "06:30"}
+notes: Plant and equipment yard. No guard. Armed 5pm to 6:30am.
+replay_start: 2026-11-10T22:38:30
+morning_at: "06:30"
+
+lockup:
+  at: "17:00"
+  checks:
+    - {camera: truck_yard, question: "Is the forecourt clear of people and moving vehicles?", expect: "yes"}
+
+assets:
+  - {camera: truck_yard, asset: Box truck, question: "Is a box truck parked in the yard?"}
+
 cameras:
-  - id: gate_road
-    name: Gate road
-    file: ../footage/cams/day_street_pickup.mp4
-    start: 2026-11-08T10:02:00
-    masks: [[0.62, 0.0, 0.38, 0.07]]
-  - id: yard
-    name: Yard
-    file: ../footage/cams/day_driveway_walker.mp4
-    start: 2026-11-08T13:47:20
-    masks: [[0.6, 0.0, 0.4, 0.08], [0.0, 0.92, 0.1, 0.08]]
-  - id: site_office
-    name: Site office door
-    file: ../footage/cams/day_porch_parcel.mp4
-    start: 2026-11-08T13:48:19
-    masks: [[0.6, 0.0, 0.4, 0.08]]
-    zones:
-      - {name: Deliveries drop-off, bbox: [0.4, 0.55, 0.35, 0.45], restricted: true}
-  - id: lunch_room
-    name: Lunch room door
-    file: ../footage/cams/day_porch_backpack.mp4
-    start: 2026-11-08T15:20:00
-    zones:
-      - {name: Deliveries drop-off, bbox: [0.3, 0.6, 0.4, 0.4], restricted: true}
-  - id: street
-    name: Street frontage
-    file: ../footage/cams/day_street_truck.mp4
-    start: 2026-11-08T11:30:00
-    masks: [[0.62, 0.0, 0.38, 0.07]]
+  - id: carpark
+    name: Car park
+    recordings:
+      - {file: ../footage/jobsite/tamper_watch.mp4, start: 2026-11-10T16:42:00}
+  - id: pole_cam
+    name: Office pole camera
+    recordings:
+      - {file: ../footage/jobsite/pole_cam_covered.mp4, start: 2026-11-10T16:42:12}
+  - id: truck_yard
+    name: Truck yard
+    recordings:
+      - {file: ../footage/jobsite/truck_yard.mp4, start: 2026-11-10T17:00:00}
+      - {file: ../footage/jobsite/truck_yard.mp4, start: 2026-11-11T06:30:00}
+  - id: earthworks
+    name: Earthworks ridge
+    recordings:
+      - {file: ../footage/jobsite/earthworks_night.mp4, start: 2026-11-10T22:40:00}
+  - id: rear_lane
+    name: Rear laneway
+    recordings:
+      - {file: ../footage/cams/night_fox_alley.mp4, start: 2026-11-11T00:32:00}
+  - id: back_paddock
+    name: Back paddock (IR)
+    recordings:
+      - {file: ../footage/cams/night_ir_coyotes.mp4, start: 2026-11-11T03:05:00}
+  - id: floodlight
+    name: Floodlight pole
+    recordings:
+      - {file: ../footage/cams/night_snow.mp4, start: 2026-11-11T04:10:00}

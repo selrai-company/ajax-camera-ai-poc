@@ -1,7 +1,7 @@
 """Download the stand-in clips from Wikimedia Commons and cut them into single-camera segments.
 
-    uv run python scripts/prepare_footage.py              # download + cut
-    uv run python scripts/prepare_footage.py --from DIR   # use already-downloaded originals
+    uv run python scripts/prepare_footage_v1.py              # download + cut
+    uv run python scripts/prepare_footage_v1.py --from DIR   # use already-downloaded originals
 
 Real Ajax footage replaces all of this later. Stand-ins prove the pipeline works; they do
 not show how it will perform on Ajax cameras. "simnight_" files are daytime clips darkened,

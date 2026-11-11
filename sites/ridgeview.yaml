@@ -1,48 +1,106 @@
-# Demo site 1: an ordinary weeknight, armed overnight.
-# Stand-in footage (see footage/SOURCES.md). "simnight_" clips are daytime footage darkened to
-# imitate night IR; "night_" clips are real night footage.
+# Demo site 1: a guarded building site on a weeknight.
+# Footage is freely licensed stand-in clips (footage/SOURCES.md), placed on a timeline to tell
+# one night's story. Run scripts/prepare_jobsite_footage.py first.
+#
+# The night of Tue 10 Nov 2026:
+#   2:20pm excavator work, 3:10pm delivery, 6:05pm guard shift-start check at the gatehouse,
+#   7:40pm floodlit concrete pour, 8:05pm pump trucks, 8:30pm lock-up (site armed),
+#   11:32pm white van on the street, 1:40am person with a torch on the back track,
+#   2:03am person on the north boundary, 2:06am someone forcing the site gate (Ajax alarm),
+#   2:07am a car drags a septic tank out of the materials yard and tows it down the access road
+#   (real CCTV, two cameras), 3:20am two people
+#   with head torches in the laydown area. Wed 11 Nov: a quiet night, the same kind of van again.
 id: ridgeview
-name: Ridgeview Apartments, Stage 2 (demo)
-armed: {from: "18:00", to: "06:00"}
-notes: Building site, empty after hours. Armed 6pm to 6am.
+name: Ridgeview Apartments, Stage 2
+address_hint: Ridgeview, NSW
+timezone: Australia/Sydney
+demo: true
+armed: {from: "20:30", to: "06:00"}
+notes: Building site. Night pours finish by 8:30pm, then the site is armed. Guard on site 6pm to 6am.
+replay_start: 2026-11-11T02:01:30
+
+guards:
+  shift: {from: "18:00", to: "06:00"}
+  rounds: ["18:00", "22:00", "00:00", "02:00", "04:00"]
+  round_window_min: 45
+  phone: "+61 400 000 000"
+  checkpoints:
+    - {id: gatehouse, name: Gatehouse, camera: gatehouse}
+    - {id: north_boundary, name: North boundary, camera: north_boundary}
+    - {id: back_track, name: Back access track, camera: back_track}
+    - {id: materials_yard, name: Materials yard, camera: yard_ir}
+
+lockup:
+  at: "20:30"
+  checks:
+    - {camera: laneway, question: "Is the timber construction hoarding along the laneway standing and closed, with no panel open or missing?", expect: "yes", kind: perimeter}
+    - {camera: laneway, question: "Is the laneway beside the construction hoarding clear of people?", expect: "yes"}
+    - {camera: site_gate, question: "Is the gate closed, rather than standing open?", expect: "yes"}
+    - {camera: yard_ir, question: "Is the yard clear of people?", expect: "yes"}
+
+alarms:
+  - {at: 2026-11-11T02:06:10, zone: Site gate contact, camera: site_gate}
+
 cameras:
-  - id: gate_road
-    name: Gate road
-    file: ../footage/cams/simnight_street_pickup.mp4
-    start: 2026-11-11T01:52:10
-    masks: [[0.62, 0.0, 0.38, 0.07]]          # burned-in timestamp
-  - id: yard
-    name: Yard
-    file: ../footage/cams/simnight_driveway_walker.mp4
-    start: 2026-11-11T02:13:40
-    masks: [[0.6, 0.0, 0.4, 0.08], [0.0, 0.92, 0.1, 0.08]]
-  - id: site_office
-    name: Site office door
-    file: ../footage/cams/simnight_porch_parcel.mp4
-    start: 2026-11-11T02:17:05
-    masks: [[0.6, 0.0, 0.4, 0.08]]
+  - id: site_gate
+    name: Site gate
+    checkpoint: null
+    recordings:
+      - {file: ../footage/jobsite/gate_idle.mp4, start: 2026-11-10T20:30:00}
+      - {file: ../footage/jobsite/gate_lockpick.mp4, start: 2026-11-11T02:06:00}
+      - {file: ../footage/jobsite/gate_idle.mp4, start: 2026-11-11T20:30:00}
+  - id: yard_ir
+    name: Materials yard (IR)
     zones:
-      - {name: Deliveries drop-off, bbox: [0.4, 0.55, 0.35, 0.45], restricted: true}
-  - id: lunch_room
-    name: Lunch room door
-    file: ../footage/cams/simnight_porch_backpack.mp4
-    start: 2026-11-11T02:20:30
-    zones:
-      - {name: Deliveries drop-off, bbox: [0.3, 0.6, 0.4, 0.4], restricted: true}
+      - {name: Tank and pipe storage, bbox: [0.55, 0.05, 0.45, 0.35], restricted: true}
+    recordings:
+      - {file: ../footage/jobsite/yard_idle.mp4, start: 2026-11-10T20:30:00}
+      - {file: ../footage/jobsite/yard_theft.mp4, start: 2026-11-11T02:07:30}
+      - {file: ../footage/jobsite/yard_idle.mp4, start: 2026-11-11T20:30:00}
+  - id: yard_road
+    name: Yard access road (IR)
+    recordings:
+      - {file: ../footage/jobsite/yard_road.mp4, start: 2026-11-11T02:08:20}
+  - id: north_boundary
+    name: North boundary
+    recordings:
+      - {file: ../footage/jobsite/fog_walker.mp4, start: 2026-11-11T02:03:00}
+  - id: back_track
+    name: Back access track
+    recordings:
+      - {file: ../footage/jobsite/torch_track.mp4, start: 2026-11-11T01:40:00}
+  - id: gatehouse
+    name: Gatehouse
+    recordings:
+      - {file: ../footage/jobsite/guard_post.mp4, start: 2026-11-10T18:05:00}
+  - id: laydown
+    name: Laydown area
+    recordings:
+      - {file: ../footage/jobsite/headtorches.mp4, start: 2026-11-11T03:20:00}
   - id: street
     name: Street frontage
-    file: ../footage/cams/simnight_street_truck.mp4
-    start: 2026-11-10T23:41:00
-    masks: [[0.62, 0.0, 0.38, 0.07]]
-  - id: back_fence
-    name: Back fence (IR)
-    file: ../footage/cams/night_ir_coyotes.mp4
-    start: 2026-11-11T03:05:00
+    masks: [[0.0, 0.0, 0.25, 0.08]]
+    recordings:
+      - {file: ../footage/jobsite/street_van.mp4, start: 2026-11-10T23:32:00}
+      - {file: ../footage/jobsite/street_van.mp4, start: 2026-11-12T01:12:00}
   - id: laneway
-    name: Laneway
-    file: ../footage/cams/night_fox_alley.mp4
-    start: 2026-11-11T00:32:00
-  - id: flood_pole
-    name: Floodlight pole
-    file: ../footage/cams/night_snow.mp4
-    start: 2026-11-11T04:10:00
+    name: Laneway hoarding
+    recordings:
+      - {file: ../footage/jobsite/laneway_hoarding.mp4, start: 2026-11-10T20:30:00}
+      - {file: ../footage/jobsite/laneway_hoarding.mp4, start: 2026-11-11T20:30:00}
+  - id: crane_pad
+    name: Crane pad
+    recordings:
+      - {file: ../footage/jobsite/night_pour.mp4, start: 2026-11-10T19:40:00}
+  - id: pump_bay
+    name: Concrete pump bay
+    recordings:
+      - {file: ../footage/jobsite/pump_trucks.mp4, start: 2026-11-10T20:05:00}
+  - id: loading_zone
+    name: Loading zone
+    recordings:
+      - {file: ../footage/jobsite/delivery_flatbed.mp4, start: 2026-11-10T15:10:00}
+  - id: excavation
+    name: Excavation
+    recordings:
+      - {file: ../footage/jobsite/excavator_day.mp4, start: 2026-11-10T14:20:00}

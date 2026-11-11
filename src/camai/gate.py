@@ -29,6 +29,8 @@ class GateConfig:
     min_event_s: float = 1.0
     global_frac: float = 0.45  # more than this changed at once = global change
     bg_alpha: float = 0.04  # background learning rate
+    flicker_alpha: float = 0.04  # how fast "moves in place" builds up per pixel
+    flicker_max: float = 0.45  # above this, a pixel is treated as flicker when choosing the box
     blank_std: float = 5.0  # frame std below this looks blank / covered
     blank_min_s: float = 20.0
     masks: list[BBox] = field(default_factory=list)  # e.g. timestamp overlay
@@ -43,6 +45,7 @@ class Event:
     peak_s: float = 0.0
     peak_area_frac: float = 0.0
     peak_bbox: BBox | None = None  # largest single moving blob at the busiest moment, for close-up crops
+    track: list[tuple[float, BBox]] = field(default_factory=list)  # (seconds, largest moving blob) per sampled frame
 
     @property
     def duration_s(self) -> float:
@@ -53,6 +56,23 @@ class Event:
             return [self.peak_s or (self.start_s + self.end_s) / 2]
         a, b = self.start_s + 0.25, max(self.start_s + 0.3, self.end_s - 0.25)
         return [round(a + (b - a) * i / (n - 1), 2) for i in range(n)]
+
+
+def _blob_box(s, w: int, h: int) -> BBox:
+    return (s[cv2.CC_STAT_LEFT] / w, s[cv2.CC_STAT_TOP] / h, s[cv2.CC_STAT_WIDTH] / w, s[cv2.CC_STAT_HEIGHT] / h)
+
+
+def _smooth(track: list[tuple[float, BBox]], alpha: float = 0.45) -> list[tuple[float, BBox]]:
+    """Exponential smoothing of the box over time so it doesn't jump between pieces of the subject."""
+    out: list[tuple[float, BBox]] = []
+    prev = None
+    for t, b in track:
+        if prev is None:
+            prev = b
+        else:
+            prev = tuple(alpha * v + (1 - alpha) * p for v, p in zip(b, prev, strict=True))
+        out.append((t, tuple(round(float(v), 4) for v in prev)))
+    return out
 
 
 def _mask_array(shape: tuple[int, int], masks: list[BBox]) -> np.ndarray:
@@ -89,6 +109,7 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
     blanks: list[tuple[float, float]] = []
 
     cur: Event | None = None
+    moving: list[tuple[float, BBox]] = []
     persist = 0
     last_motion = 0.0
     last_t = 0.0
@@ -110,6 +131,7 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
 
         if bg is None:
             bg = f.astype(np.float32)
+            flicker = np.zeros(f.shape, np.float32)
             continue
         diff = cv2.absdiff(f, cv2.convertScaleAbs(bg))
         diff[mask] = 0
@@ -127,16 +149,27 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
         n, _, stats, _ = cv2.connectedComponentsWithStats(th, connectivity=8)
         min_area = cfg.min_blob_frac * visible
         blobs = [s for s in stats[1:n] if s[cv2.CC_STAT_AREA] >= min_area]
+        # Spots that keep "moving" in place (a flickering lamp, glare in fog, rain on the lens) build up
+        # here; they're left out when choosing what to box, so the box follows things that move around.
+        cv2.accumulateWeighted((th > 0).astype(np.float32), flicker, cfg.flicker_alpha)
+        steady = th.copy()
+        steady[flicker > cfg.flicker_max] = 0
+        sn, _, sstats, _ = cv2.connectedComponentsWithStats(steady, connectivity=8)
+        track_blobs = [s for s in sstats[1:sn] if s[cv2.CC_STAT_AREA] >= min_area] or blobs
         if blobs:
             persist += 1
-            big = max(blobs, key=lambda s: s[cv2.CC_STAT_AREA])
+            big = max(track_blobs, key=lambda s: s[cv2.CC_STAT_AREA])
             area = int(big[cv2.CC_STAT_AREA]) / visible
-            big_box: BBox = (
-                big[cv2.CC_STAT_LEFT] / w,
-                big[cv2.CC_STAT_TOP] / h,
-                big[cv2.CC_STAT_WIDTH] / w,
-                big[cv2.CC_STAT_HEIGHT] / h,
-            )
+            big_box: BBox = _blob_box(big, w, h)
+            # One subject often splits into pieces (a person, their torch, its beam on the ground):
+            # box the main blob together with any sizeable blob close to it.
+            bx, by = big_box[0] + big_box[2] / 2, big_box[1] + big_box[3] / 2
+            for sb in track_blobs:
+                if sb is big or sb[cv2.CC_STAT_AREA] < 0.2 * big[cv2.CC_STAT_AREA]:
+                    continue
+                ob = _blob_box(sb, w, h)
+                if abs(ob[0] + ob[2] / 2 - bx) < 0.3 and abs(ob[1] + ob[3] / 2 - by) < 0.4:
+                    big_box = _union(big_box, ob)
             box: BBox | None = None
             for s in blobs:
                 box = _union(
@@ -148,6 +181,7 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
                         s[cv2.CC_STAT_HEIGHT] / h,
                     ),
                 )
+            moving.append((t, tuple(round(float(v), 4) for v in big_box)))
             if persist >= cfg.persist_frames:
                 if cur is None:
                     start = t - (cfg.persist_frames - 1) / fps
@@ -190,6 +224,8 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
         for e in events
         if e.duration_s >= cfg.min_event_s
     ]
+    for e in events:
+        e.track = _smooth([(round(t, 2), b) for t, b in moving if e.start_s <= t <= e.end_s])
     events += [Event(a, b, (0, 0, 1, 1), "global_change", a) for a, b in _runs(globals_, 2.0 / fps)]
     events += [Event(a, b, (0, 0, 1, 1), "blank_view", a) for a, b in blanks]
     return sorted(events, key=lambda e: e.start_s)

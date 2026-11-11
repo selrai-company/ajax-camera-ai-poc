@@ -36,10 +36,15 @@ CONF = {"low": 0.55, "medium": 0.75, "high": 0.9}
 
 
 class HaikuChecker:
+    """Claude checker. Haiku by default; pass model=SONNET where a wrong answer is costly."""
+
     name = "haiku-5.5"
 
-    def __init__(self, claude: Claude):
+    def __init__(self, claude: Claude, model: str = HAIKU):
         self.claude = claude
+        self.model = model
+        if model != HAIKU:
+            self.name = model.replace("claude-", "").replace("-5-5", "-5.5")
 
     def check(self, question, options, images):
         schema = {
@@ -54,7 +59,7 @@ class HaikuChecker:
         }
         t0 = time.monotonic()
         res = self.claude.complete_json(
-            model=HAIKU,
+            model=self.model,
             system="You answer one question about a security camera image. Answer cant_tell when the image does not show it clearly. Keep 'why' under 15 words.",
             images=images,
             text=question,

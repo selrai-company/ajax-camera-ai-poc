@@ -1,0 +1,1 @@
+import{M as e,S as t,i as n,p as r}from"./ui-CRlKARXQ.js";var i=e();function a(){return(0,i.jsx)(n,{title:`Page not found`,className:`flex-1`,action:(0,i.jsx)(t,{to:`/`,className:r(`secondary`,`sm`),children:`Go to the camera wall`}),children:`The link may be old, or the page has moved.`})}export{a as default};
