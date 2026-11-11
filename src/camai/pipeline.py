@@ -29,14 +29,18 @@ def process_camera(
     log(f"[{cam.id}] {cam.file.name}: {src.info.duration:.0f}s of footage -> {len(events)} gate events")
     ids = []
     for ev in events:
-        rel = Path(site.id) / cam.id / f"{ev.kind}_{ev.start_s:07.1f}"
+        ts = cam.at(ev.start_s)
+        rel = Path(site.id) / cam.id / f"{ts:%Y%m%d_%H%M%S}_{ev.kind}"
         media_dir = media_root / rel
         media: dict = {"dir": str(rel)}
         report = llm = None
-        if ev.kind == "motion":
+        # Whole-frame changes of 2 s or more (someone close to a door camera, a light being
+        # switched on) also get an AI look; short flashes (headlight sweeps, IR switching) do not.
+        describe = ev.kind == "motion" or (ev.kind == "global_change" and ev.duration_s >= 2.0)
+        if describe:
             media["clip"] = src.cut(ev.start_s, ev.end_s, media_dir / "clip.mp4").name
             if claude is not None:
-                report, res, paths = describe_event(claude, src, ev, cam.start, media_dir)
+                report, res, paths = describe_event(claude, src, ev, cam.start, media_dir, blackout=cam.masks)
                 media.update(paths)
                 llm = {
                     "model": res.model,
@@ -64,7 +68,7 @@ def process_camera(
                 end_s=round(ev.end_s, 2),
                 peak_s=round(ev.peak_s, 2),
                 bbox=list(ev.bbox),
-                ts=cam.at(ev.start_s),
+                ts=ts,
                 media=media,
                 report=report,
                 llm=llm,

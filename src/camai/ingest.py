@@ -72,10 +72,16 @@ class FileSource:
             proc.stdout.close()
             proc.wait()
 
-    def grab(self, t: float, out: Path, crop: BBox | None = None, max_width: int = 1024) -> Path:
-        """Save one full-resolution frame (optionally cropped) as JPEG."""
+    def grab(
+        self, t: float, out: Path, crop: BBox | None = None, max_width: int = 1024, blackout: list[BBox] = ()
+    ) -> Path:
+        """Save one full-resolution frame (optionally cropped) as JPEG.
+
+        ``blackout`` boxes (e.g. the camera's burned-in clock) are painted black first, so the AI
+        can't read a wrong time off the picture.
+        """
         out.parent.mkdir(parents=True, exist_ok=True)
-        filters = []
+        filters = [f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*{w}:h=ih*{h}:color=black:t=fill" for x, y, w, h in blackout]
         if crop:
             x, y, w, h = crop
             iw, ih = self.info.width, self.info.height

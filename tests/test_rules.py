@@ -40,7 +40,9 @@ def test_animals_and_weather_are_ignored(site):
 
 def test_not_a_problem_rule_suppresses_matching_events_only(site):
     rule = SuppressRule(1, "cam1", "walking_through", 1, 3, "cleaner")
-    assert v(site, PERSON, rules=[rule]).severity == IGNORE
+    assert v(site, PERSON, rules=[rule]).severity == FYI  # armed person: quietened, never hidden
+    day_rule = SuppressRule(3, "cam1", "walking_through", 10, 12, "")
+    assert v(site, PERSON, ts=DAY, bbox=IN_ZONE, rules=[day_rule]).severity == IGNORE
     assert v(site, {**PERSON, "activity": "carrying_items"}, rules=[rule]).severity == NEEDS_LOOK
     wrap = SuppressRule(2, "cam1", "walking_through", 23, 1, "")
     assert wrap.matches("cam1", "walking_through", datetime(2026, 1, 1, 0, 30))
@@ -49,3 +51,5 @@ def test_not_a_problem_rule_suppresses_matching_events_only(site):
 def test_camera_signals(site):
     assert v(site, None, kind="blank_view").severity == CAMERA_ISSUE
     assert v(site, None, kind="global_change").severity == IGNORE
+    # a long whole-frame change that the AI looked at (someone close to the lens) is judged normally
+    assert v(site, PERSON, kind="global_change").severity == NEEDS_LOOK

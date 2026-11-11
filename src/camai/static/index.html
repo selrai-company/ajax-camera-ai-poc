@@ -153,13 +153,39 @@ function render(b) {
     </div>
     ${groups.map((g, i) => incidentCard(g, i === 0)).join("")}
     ${ignored.length ? `<div class="card"><details><summary>Checked and ignored (${ignored.length}): why each one didn't need you</summary>${ignoredList}</details></div>` : ""}
-    <p class="foot">The AI describes what's visible; your site rules decide what needs you. Estimated AI cost of this brief at API prices: $${b.est_api_cost_usd.toFixed(4)}.</p>`;
+    <p class="foot">The AI describes what's visible; your site rules decide what needs you. Estimated AI cost of this brief at API prices: $${b.est_api_cost_usd.toFixed(4)}.${b.brief_error ? " The AI headline was unavailable, so this brief uses a plain summary." : ""}</p>`;
 }
 
 async function load(siteId) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.id === siteId));
-  const r = await fetch(`/api/sites/${siteId}/brief`);
-  render(await r.json());
+  document.getElementById("app").innerHTML = `<div class="card mut">Preparing the brief…</div>`;
+  try {
+    const r = await fetch(`/api/sites/${siteId}/brief`);
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    render(await r.json());
+    await loadRules(siteId);
+  } catch (err) {
+    document.getElementById("app").innerHTML = `<div class="card"><b>Couldn't load the brief.</b><p class="mut">${esc(err.message)}</p></div>`;
+  }
+}
+
+// Changes carry a header other websites can't add, so they can't press these buttons for you.
+const send = (url, method = "POST") => fetch(url, {method, headers: {"X-Camai": "1"}});
+
+async function loadRules(siteId) {
+  const rules = await (await fetch(`/api/sites/${siteId}/rules`)).json();
+  if (!rules.length) return;
+  const hh = h => String(h).padStart(2, "0");
+  document.getElementById("app").insertAdjacentHTML("beforeend", `<div class="card"><details open><summary>Site rules from "Not a problem" (${rules.length})</summary>
+    ${rules.map(r => `<div class="ign"><span>${esc(r.note)}</span><span class="mut">· ${hh(r.hour_from)}:00 to ${hh(r.hour_to)}:59, every night</span>
+      <button class="btn" style="margin-left:auto" onclick="undoRule(${r.id})">Undo</button></div>`).join("")}
+    <p class="foot">A rule hides matching events. A person seen while the site is armed is never hidden completely: it drops to "For your info".</p></details></div>`);
+}
+
+async function undoRule(id) {
+  await send(`/api/rules/${id}`, "DELETE");
+  toast("Rule undone");
+  await load(current.site.id);
 }
 
 function playClip(ev, id, src, btn) {
@@ -176,7 +202,9 @@ function playClip(ev, id, src, btn) {
 async function notAProblem(ev, id, btn) {
   ev.stopPropagation();
   btn.disabled = true;
-  const r = await (await fetch(`/api/events/${id}/not-a-problem`, {method: "POST"})).json();
+  const res = await send(`/api/events/${id}/not-a-problem`);
+  if (!res.ok) { btn.disabled = false; toast(`Couldn't save the rule (${res.status})`); return; }
+  const r = await res.json();
   toast(`Saved site rule: ${r.note}`);
   await load(current.site.id);
 }

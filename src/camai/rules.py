@@ -60,7 +60,7 @@ def evaluate(
 ) -> Verdict:
     if kind == "blank_view":
         return Verdict(CAMERA_ISSUE, ["Camera view blank or covered"])
-    if kind == "global_change":
+    if kind == "global_change" and not report:
         return Verdict(IGNORE, ["Whole-frame lighting change (headlights, IR switch)"])
 
     report = report or {}
@@ -72,6 +72,9 @@ def evaluate(
 
     for rule in rules:
         if rule.matches(camera.id, activity, ts):
+            # A rule can quieten a person seen while armed, but never hide them completely.
+            if armed and person == "yes":
+                return Verdict(FYI, [*reasons, f"Site rule: {rule.note or activity}"])
             return Verdict(IGNORE, [f"Matches site rule: {rule.note or activity}"])
 
     zones = [z for z in camera.zones if _overlaps(bbox, z.bbox)]

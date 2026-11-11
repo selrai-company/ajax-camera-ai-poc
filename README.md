@@ -71,8 +71,22 @@ see `docs/ajax-integration.md`.
 The demo uses freely licensed stand-in clips from Wikimedia Commons (credits in
 `footage/SOURCES.md`), not Ajax footage. `simnight_` clips are daytime footage darkened to
 imitate night infrared. **Stand-ins prove the pipeline works; they say little about accuracy
-on real Ajax cameras.** Results for the two runs are in `results/`. Labels were written and
-committed before any model ran (`labels/README.md`).
+on real Ajax cameras.** Results are in `results/`; read the caveats in
+`results/run3-after-review.md` before quoting any number. The labels were written by the build
+agent from contact sheets, before any model ran (`labels/README.md`).
+
+## Known limitations
+
+- **No login.** `camai serve` binds to 127.0.0.1. `--host 0.0.0.0` would expose footage and the
+  "Not a problem" button to anyone on the network.
+- **Dark, unlit scenes can read as "camera blank".** The blank-view check is a simple brightness-spread
+  test, so expect false camera issues on very dark real night footage until it is tuned.
+- **A person standing still fades into the background** after about six seconds, so long loitering
+  can split into several events.
+- **Armed state comes from clock hours**, with times treated as local (no timezone). In production,
+  store the Ajax arming state with each event as it comes in.
+- **Recordings are processed as files.** Event identity is the wall-clock time, so each night's
+  recording needs its correct `start:` time in the site config.
 
 ## Layout
 

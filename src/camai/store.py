@@ -24,7 +24,7 @@ create table if not exists events (
   media text not null default '{}',
   report text,                   -- Haiku JSON
   llm text,                      -- model, tokens, cost, backend, latency
-  unique(site_id, camera_id, kind, start_s)
+  unique(site_id, camera_id, kind, ts)   -- wall-clock identity, so the next night's file doesn't overwrite this one
 );
 create table if not exists rules (
   id integer primary key,
@@ -57,9 +57,11 @@ class Store:
                 vals[i] = vals[i].isoformat()
         cur = self.db.execute(
             f"insert into events ({','.join(cols)}) values ({','.join('?' * len(cols))}) "
-            "on conflict(site_id, camera_id, kind, start_s) do update set "
-            "end_s=excluded.end_s, peak_s=excluded.peak_s, bbox=excluded.bbox, ts=excluded.ts, "
-            "media=excluded.media, report=excluded.report, llm=excluded.llm returning id",
+            "on conflict(site_id, camera_id, kind, ts) do update set "
+            "start_s=excluded.start_s, end_s=excluded.end_s, peak_s=excluded.peak_s, bbox=excluded.bbox, "
+            # a gate-only rerun (--no-ai) must not wipe earlier AI reports
+            "media=json_patch(media, excluded.media), report=coalesce(excluded.report, report), "
+            "llm=coalesce(excluded.llm, llm) returning id",
             vals,
         )
         row = cur.fetchone()

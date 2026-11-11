@@ -1,8 +1,11 @@
 # Run 2: adaptive frame sampling + prompt fixes
 
-Changes after run 1: one frame every ~2.5 s (6-16 frames) instead of a fixed 8; prompt forbids gendered words and
+Changes after run 1: one frame every ~2.5 s (6-16 frames) instead of a fixed 8; the gate's close-up crop now centres on the
+largest moving blob; prompt forbids gendered words and
 burned-in camera timestamps; AI accuracy now scored per event (run 1 scored per label, which penalised correct
 answers on events containing both a person and a vehicle); subscription-mode input tokens estimated from what was sent.
+
+See `run3-after-review.md` for the full caveats (repeated scenes, simulated night, agent-written labels, generous recall).
 
 **Caveat:** these fixes were made after seeing run 1 on the same clips, so this is tuned, not held-out, performance.
 Only lunch_room is held out from gate tuning. 16 events in total is far too few to claim accuracy; the point is that

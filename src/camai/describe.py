@@ -75,6 +75,7 @@ def describe_event(
     media_dir: Path,
     n_frames: int | None = None,
     model: str = HAIKU,
+    blackout: list = (),
 ) -> tuple[dict, LLMResult, dict]:
     """Returns (report, llm_result, media paths)."""
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -84,12 +85,14 @@ def describe_event(
     n = n_frames or max(6, min(16, round(event.duration_s / 2.5)))
     times = event.sample_times(n)
     for i, t in enumerate(times, 1):
-        p = src.grab(t, media_dir / f"frame_{i:02d}.jpg", max_width=768)
+        p = src.grab(t, media_dir / f"frame_{i:02d}.jpg", max_width=768, blackout=blackout)
         frames.append(p.name)
         wall = clip_start + timedelta(seconds=t)
         label = f"Frame {i} of {len(times)}, {wall.strftime('%H:%M:%S')}"
         images.append(Image.from_path(p, label))
-    crop = src.grab(event.peak_s, media_dir / "crop_peak.jpg", crop=event.peak_bbox or event.bbox, max_width=768)
+    crop = src.grab(
+        event.peak_s, media_dir / "crop_peak.jpg", crop=event.peak_bbox or event.bbox, max_width=768, blackout=blackout
+    )
     images.append(Image.from_path(crop, "Close-up crop of the motion area at its busiest moment"))
 
     res = claude.complete_json(
@@ -99,6 +102,6 @@ def describe_event(
         text="Describe this event as JSON matching the schema.",
         schema=REPORT_SCHEMA,
         effort="low",
-        max_tokens=4000,
+        max_tokens=8000,  # includes thinking tokens
     )
     return res.data, res, {"frames": frames, "crop": crop.name}

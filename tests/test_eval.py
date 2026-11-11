@@ -17,5 +17,5 @@ def test_eval_scores_gate_and_flags_separately(site, tmp_path):
         {"start": 5, "end": 12, "what": "person", "should_flag": True},
     ]}))
     out = json.loads(run_eval(site, store, tmp_path / "labels", json_out=True))
-    assert out["gate_recall"] == "100%" and out["end_to_end_recall"] == "100%"
-    assert out["false_flags_per_hour"] == 0 and out["ai_person_accuracy"] == "100%"
+    assert out["gate_recall"] == "100% (1/1)" and out["end_to_end_recall"] == "100% (1/1)"
+    assert out["false_flags_per_hour"] == 0 and out["ai_person_present_correct"] == "100% (1/1)"

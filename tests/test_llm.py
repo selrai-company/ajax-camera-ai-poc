@@ -68,3 +68,17 @@ def test_image_token_estimate_matches_rule_of_thumb():
     from camai.llm import image_tokens
 
     assert abs(image_tokens(buf.tobytes()) - 768 * 432 // 750) <= 2
+
+
+def test_subscription_backend_never_passes_an_api_key_to_the_cli(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
+    ok = {"type": "result", "is_error": False, "structured_output": {"key_seen": False}, "usage": {"output_tokens": 1}}
+    leak = {**ok, "structured_output": {"key_seen": True}}
+    cli = tmp_path / "claude"
+    cli.write_text(
+        "#!/bin/sh\ncat >/dev/null\n"
+        f"if [ -n \"$ANTHROPIC_API_KEY\" ]; then echo '{json.dumps(leak)}'; else echo '{json.dumps(ok)}'; fi\n"
+    )
+    cli.chmod(cli.stat().st_mode | stat.S_IEXEC)
+    r = SubscriptionBackend(cli=str(cli)).complete_json(model=HAIKU, system="", content=[], schema={}, effort="low", max_tokens=10)
+    assert r.data == {"key_seen": False}

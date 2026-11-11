@@ -159,6 +159,9 @@ class SubscriptionBackend:
             "",
             "--no-session-persistence",
         ]
+        # Never let an API key in the environment reach the CLI: it would bill that key while
+        # this result is labelled "subscription".
+        env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
         try:
             proc = subprocess.run(
                 cmd,
@@ -167,16 +170,22 @@ class SubscriptionBackend:
                 text=True,
                 timeout=self.timeout_s,
                 check=False,
+                env=env,
             )
         except FileNotFoundError as e:
             raise LLMError(
                 "The `claude` CLI was not found. Install Claude Code and sign in, "
                 "or set CAMAI_CLAUDE_BACKEND=api with ANTHROPIC_API_KEY."
             ) from e
+        except subprocess.TimeoutExpired as e:
+            raise LLMError(f"claude CLI timed out after {self.timeout_s}s") from e
         result = None
         for line in proc.stdout.splitlines():
             if '"type":"result"' in line.replace(" ", ""):
-                result = json.loads(line)
+                try:
+                    result = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
         if result is None:
             raise LLMError(f"claude CLI gave no result (exit {proc.returncode}): {proc.stderr[-500:]}")
         if result.get("is_error") or result.get("structured_output") is None:
@@ -231,7 +240,13 @@ class ApiBackend:
             raise LLMError(f"Model declined the request: {getattr(resp, 'stop_details', None)}")
         if resp.stop_reason == "max_tokens":
             raise LLMError("Model hit max_tokens before finishing the JSON")
-        text = next(b.text for b in resp.content if b.type == "text")
+        text = next((b.text for b in resp.content if b.type == "text"), None)
+        if text is None:
+            raise LLMError(f"No text block in response (stop_reason={resp.stop_reason})")
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise LLMError(f"Response was not valid JSON: {text[:200]}") from e
         u = resp.usage
         input_tokens = (
             (u.input_tokens or 0)
@@ -239,8 +254,8 @@ class ApiBackend:
             + (getattr(u, "cache_read_input_tokens", 0) or 0)
         )
         return LLMResult(
-            data=json.loads(text),
-            model=model,
+            data=data,
+            model=getattr(resp, "model", None) or model,  # records a server-side fallback model
             input_tokens=input_tokens,
             output_tokens=u.output_tokens or 0,
             backend=self.name,
