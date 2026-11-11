@@ -1,7 +1,7 @@
 # Stand-in footage credits
 
 The demo uses freely licensed clips from Wikimedia Commons, cut into single-camera segments
-by `scripts/prepare_footage.py`. Video files are not committed; run the script to fetch them.
+by `scripts/prepare_footage_v1.py`. Video files are not committed; run the script to fetch them.
 `simnight_` segments are the daytime clips darkened and greyscaled to imitate night infrared.
 
 | Segments | Original | Creator | Licence |
