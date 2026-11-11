@@ -37,7 +37,7 @@ BRIEF_SCHEMA = {
 
 BRIEF_SYSTEM = """You write the 6am morning brief for a job-site manager from camera event reports.
 - headline: one sentence, at most 20 words, saying what needs their attention. Plain English, Australian spelling.
-- items: for each event given, a title of at most 14 words saying what happened, factual and calm.
+- items: for each event given, a title of at most 12 words saying what happened, factual and calm. Do not repeat the camera name or the time; the page already shows them.
 - Report only what the event reports say. Never add guesses about identity or intent, and never call anyone suspicious.
 - Where events on different cameras look like the same person or vehicle moving through the site, you may say so in the headline, using "appears to"."""
 

@@ -22,7 +22,7 @@ def test_pipeline_to_brief_flags_person_at_night(site, tmp_path):
     flagged = [e for e in b["events"] if e["severity"] == "needs_look"]
     assert len(flagged) == 1 and flagged[0]["title"] == "Person in yard"
     assert (tmp_path / "media" / flagged[0]["media"]["dir"] / "clip.mp4").exists()
-    assert len(flagged[0]["media"]["frames"]) == 8
+    assert 6 <= len(flagged[0]["media"]["frames"]) <= 16
 
 
 def test_quiet_night_needs_no_ai_call(site, tmp_path):

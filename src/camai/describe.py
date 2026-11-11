@@ -59,7 +59,8 @@ You get numbered frames from one camera in time order, then close-up crops of th
 Describe only what is visible:
 - Say what moved: people, vehicles, animals, weather, lighting changes or camera artefacts (noise, insects, rain on the lens).
 - Describe actions and movement in order: where they came from, what they did, where they went, and anything carried.
-- Never identify anyone, and never guess age, gender, ethnicity or other personal traits. Clothing is fine only when it matters to the event (for example a hi-vis vest).
+- Never identify anyone. Refer to people only as "a person", "two people" or "person 1/person 2": never "man", "woman", "boy", "girl", "guy" or "lady", and never guess age, ethnicity or other personal traits. Clothing is fine only when it matters to the event (for example a hi-vis vest).
+- Ignore any date or time text burned into the picture by the camera. Use only the times in the frame labels.
 - Never judge intent or call anything suspicious, criminal or dodgy. Severity is decided elsewhere.
 - Night and infrared footage is grainy. When you cannot tell, say so in cant_tell and use "cant_tell" values rather than guessing.
 - summary: one plain-English sentence a site manager can read in five seconds.
@@ -72,21 +73,23 @@ def describe_event(
     event: Event,
     clip_start: datetime,
     media_dir: Path,
-    n_frames: int = 8,
+    n_frames: int | None = None,
     model: str = HAIKU,
 ) -> tuple[dict, LLMResult, dict]:
     """Returns (report, llm_result, media paths)."""
     media_dir.mkdir(parents=True, exist_ok=True)
     images: list[Image] = []
     frames: list[str] = []
-    times = event.sample_times(n_frames)
+    # About one frame every 2.5 s, 6 to 16 frames: short events stay cheap, long ones don't skip a walk-past.
+    n = n_frames or max(6, min(16, round(event.duration_s / 2.5)))
+    times = event.sample_times(n)
     for i, t in enumerate(times, 1):
         p = src.grab(t, media_dir / f"frame_{i:02d}.jpg", max_width=768)
         frames.append(p.name)
         wall = clip_start + timedelta(seconds=t)
         label = f"Frame {i} of {len(times)}, {wall.strftime('%H:%M:%S')}"
         images.append(Image.from_path(p, label))
-    crop = src.grab(event.peak_s, media_dir / "crop_peak.jpg", crop=event.bbox, max_width=768)
+    crop = src.grab(event.peak_s, media_dir / "crop_peak.jpg", crop=event.peak_bbox or event.bbox, max_width=768)
     images.append(Image.from_path(crop, "Close-up crop of the motion area at its busiest moment"))
 
     res = claude.complete_json(

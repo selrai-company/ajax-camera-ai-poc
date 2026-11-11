@@ -42,6 +42,7 @@ class Event:
     kind: str = "motion"  # motion | global_change | blank_view
     peak_s: float = 0.0
     peak_area_frac: float = 0.0
+    peak_bbox: BBox | None = None  # largest single moving blob at the busiest moment, for close-up crops
 
     @property
     def duration_s(self) -> float:
@@ -128,7 +129,14 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
         blobs = [s for s in stats[1:n] if s[cv2.CC_STAT_AREA] >= min_area]
         if blobs:
             persist += 1
-            area = sum(int(s[cv2.CC_STAT_AREA]) for s in blobs) / th.size
+            big = max(blobs, key=lambda s: s[cv2.CC_STAT_AREA])
+            area = int(big[cv2.CC_STAT_AREA]) / visible
+            big_box: BBox = (
+                big[cv2.CC_STAT_LEFT] / w,
+                big[cv2.CC_STAT_TOP] / h,
+                big[cv2.CC_STAT_WIDTH] / w,
+                big[cv2.CC_STAT_HEIGHT] / h,
+            )
             box: BBox | None = None
             for s in blobs:
                 box = _union(
@@ -143,12 +151,12 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
             if persist >= cfg.persist_frames:
                 if cur is None:
                     start = t - (cfg.persist_frames - 1) / fps
-                    cur = Event(start, t, box, peak_s=t, peak_area_frac=area)
+                    cur = Event(start, t, box, peak_s=t, peak_area_frac=area, peak_bbox=big_box)
                 else:
                     cur.bbox = _union(cur.bbox, box)
                     cur.end_s = t
                     if area > cur.peak_area_frac:
-                        cur.peak_area_frac, cur.peak_s = area, t
+                        cur.peak_area_frac, cur.peak_s, cur.peak_bbox = area, t, big_box
                 last_motion = t
         else:
             persist = 0
@@ -170,13 +178,15 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
                 e.bbox,
                 peak_s=e.peak_s,
                 peak_area_frac=e.peak_area_frac,
+                peak_bbox=e.peak_bbox,
             )
             for e in raw
         ],
         cfg.merge_gap_s,
     )
     events = [
-        Event(e.start_s, e.end_s, _pad(e.bbox), "motion", e.peak_s, round(e.peak_area_frac, 5))
+        Event(e.start_s, e.end_s, _pad(e.bbox), "motion", e.peak_s, round(e.peak_area_frac, 5),
+              _pad(e.peak_bbox, 0.35, 0.22) if e.peak_bbox else None)
         for e in events
         if e.duration_s >= cfg.min_event_s
     ]
@@ -193,9 +203,9 @@ def _merge(events: list[Event], gap: float) -> list[Event]:
             p.end_s = max(p.end_s, e.end_s)
             p.bbox = _union(p.bbox, e.bbox)
             if e.peak_area_frac > p.peak_area_frac:
-                p.peak_area_frac, p.peak_s = e.peak_area_frac, e.peak_s
+                p.peak_area_frac, p.peak_s, p.peak_bbox = e.peak_area_frac, e.peak_s, e.peak_bbox
         else:
-            out.append(Event(e.start_s, e.end_s, e.bbox, e.kind, e.peak_s, e.peak_area_frac))
+            out.append(Event(e.start_s, e.end_s, e.bbox, e.kind, e.peak_s, e.peak_area_frac, e.peak_bbox))
     return out
 
 

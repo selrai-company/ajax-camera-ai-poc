@@ -38,16 +38,22 @@ def run_eval(site: Site, store: Store, labels_dir: Path, json_out: bool = False)
             e["severity"] = evaluate(kind=e["kind"], report=e["report"], bbox=tuple(e["bbox"]), ts=e["ts"],
                                      site=site, camera=cam).severity
         targets = [x for x in lab["events"] if x["what"] in ("person", "vehicle")]
-        gated = flagged = ai_pairs = ai_correct = 0
+        gated = flagged = 0
         for x in targets:
             hits = [e for e in cam_events if _overlap(x["start"], x["end"], e["start_s"], e["end_s"])]
             gated += bool(hits)
             if x.get("should_flag"):
                 flagged += any(e["severity"] == NEEDS_LOOK for e in hits)
-            for e in hits:
-                if e["report"]:
-                    ai_pairs += 1
-                    ai_correct += (e["report"]["person_present"] == "yes") == (x["what"] == "person")
+        # AI accuracy is scored per event: was a person in this event window, and did the AI say so?
+        ai_pairs = ai_correct = 0
+        for e in cam_events:
+            if not e["report"]:
+                continue
+            person_there = any(
+                x["what"] == "person" and _overlap(x["start"], x["end"], e["start_s"], e["end_s"]) for x in lab["events"]
+            )
+            ai_pairs += 1
+            ai_correct += (e["report"]["person_present"] == "yes") == person_there
         should = [x for x in lab["events"] if x.get("should_flag")]
         false_flags = sum(
             1 for e in cam_events
@@ -71,6 +77,7 @@ def run_eval(site: Site, store: Store, labels_dir: Path, json_out: bool = False)
         "ai_person_accuracy": pct(tot["ai_correct"], tot["ai_pairs"]),
         "false_flags_per_hour": round(tot["false_flags"] / tot["hours"], 2) if tot["hours"] else None,
         "est_api_cost_per_camera_hour": round(tot["cost"] / tot["hours"], 4) if tot["hours"] else None,
+        "est_api_cost_per_event": round(tot["cost"] / tot["motion_events"], 5) if tot["motion_events"] else None,
         "footage_hours": round(tot["hours"], 3),
         "totals": tot,
         "cameras": rows,
@@ -78,18 +85,20 @@ def run_eval(site: Site, store: Store, labels_dir: Path, json_out: bool = False)
     if json_out:
         return json.dumps(summary, indent=1)
     lines = [f"Evaluation: {site.name}  ({summary['footage_hours']} h of labelled footage)", ""]
-    lines.append(f"{'camera':<10}{'held out':<10}{'gate':>8}{'flagged':>10}{'false':>7}{'AI person':>11}{'cost $':>10}")
+    lines.append(f"{'camera':<13}{'held out':<10}{'gate':>8}{'flagged':>10}{'false':>7}{'AI person':>11}{'cost $':>10}")
     for r in rows:
         lines.append(
-            f"{r['camera']:<10}{'yes' if r['held_out'] else '':<10}{r['gated']:>4}/{r['labelled']:<3}"
+            f"{r['camera']:<13}{'yes' if r['held_out'] else '':<10}{r['gated']:>4}/{r['labelled']:<3}"
             f"{r['flagged']:>6}/{r['should_flag']:<3}{r['false_flags']:>6}{r['ai_correct']:>7}/{r['ai_pairs']:<3}{r['cost']:>10.4f}"
         )
     lines += [
         "",
         f"Gate recall (person/vehicle events caught by motion gate): {summary['gate_recall']}",
         f"End-to-end recall (should-flag events marked 'needs a look'): {summary['end_to_end_recall']}",
-        f"AI person present/absent accuracy on gated events: {summary['ai_person_accuracy']}",
+        f"AI person present/absent accuracy, per event: {summary['ai_person_accuracy']}",
         f"False 'needs a look' flags per hour of footage: {summary['false_flags_per_hour']}",
-        f"Estimated API cost per camera-hour: ${summary['est_api_cost_per_camera_hour']}",
+        f"Estimated API cost per described event (Haiku): ${summary['est_api_cost_per_event']}",
+        f"Estimated API cost per camera-hour: ${summary['est_api_cost_per_camera_hour']} "
+        "(stand-in clips are wall-to-wall events, so this is far above a real quiet night)",
     ]
     return "\n".join(lines)

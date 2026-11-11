@@ -92,6 +92,31 @@ class Backend(Protocol):
     ) -> LLMResult: ...
 
 
+def image_tokens(data: bytes) -> int:
+    """Anthropic's rule of thumb: tokens ~= width * height / 750 (after any downscale to <=1568 px)."""
+    import cv2
+    import numpy as np
+
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_REDUCED_GRAYSCALE_2)
+    if img is None:
+        return 1600
+    h, w = img.shape[0] * 2, img.shape[1] * 2
+    scale = min(1.0, 1568 / max(w, h))
+    return int(w * scale * h * scale / 750)
+
+
+def estimate_input_tokens(system: str, content: list[dict[str, Any]], schema: dict[str, Any]) -> int:
+    """What one API request with this content would cost in input tokens (about 4 characters per token)."""
+    chars = len(system) + len(json.dumps(schema))
+    tokens = 0
+    for block in content:
+        if block["type"] == "image":
+            tokens += image_tokens(base64.standard_b64decode(block["source"]["data"]))
+        else:
+            chars += len(block.get("text", ""))
+    return tokens + chars // 4
+
+
 def build_content(images: list[Image], text: str) -> list[dict[str, Any]]:
     """Images in order, each preceded by its label, then the instruction text."""
     content: list[dict[str, Any]] = []
@@ -156,20 +181,22 @@ class SubscriptionBackend:
             raise LLMError(f"claude CLI gave no result (exit {proc.returncode}): {proc.stderr[-500:]}")
         if result.get("is_error") or result.get("structured_output") is None:
             raise LLMError(f"claude CLI error: {str(result.get('result'))[:500]}")
-        usage = (result.get("modelUsage") or {}).get(model) or {}
-        input_tokens = (
-            usage.get("inputTokens", 0)
-            + usage.get("cacheCreationInputTokens", 0)
-            + usage.get("cacheReadInputTokens", 0)
-        )
+        # The CLI's structured-output mode can take several internal turns and its usage counters
+        # add every turn up (re-counting the images). A production API call is one request, so
+        # estimate input tokens from what we actually sent; output tokens come from the CLI.
+        usage = result.get("usage") or {}
         return LLMResult(
             data=result["structured_output"],
             model=model,
-            input_tokens=input_tokens,
-            output_tokens=usage.get("outputTokens", 0),
+            input_tokens=estimate_input_tokens(system, content, schema),
+            output_tokens=int(usage.get("output_tokens") or 0),
             backend=self.name,
             latency_ms=int(result.get("duration_ms") or 0),
-            raw={"session_cost_usd": result.get("total_cost_usd")},
+            raw={
+                "cli_cost_usd": result.get("total_cost_usd"),
+                "cli_num_turns": result.get("num_turns"),
+                "input_tokens_estimated": True,
+            },
         )
 
 

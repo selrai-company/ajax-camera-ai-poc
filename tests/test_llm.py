@@ -49,10 +49,22 @@ def test_api_backend_parses_structured_output_and_counts_tokens():
 
 def test_subscription_backend_reads_cli_result(tmp_path):
     result = {"type": "result", "is_error": False, "structured_output": {"ok": 1}, "duration_ms": 900,
-              "modelUsage": {HAIKU: {"inputTokens": 50, "cacheCreationInputTokens": 10, "outputTokens": 7}}}
+              "num_turns": 2, "usage": {"input_tokens": 2, "output_tokens": 7}}
     cli = tmp_path / "claude"
     cli.write_text(f"#!/bin/sh\ncat >/dev/null\necho '{json.dumps(result)}'\n")
     cli.chmod(cli.stat().st_mode | stat.S_IEXEC)
-    r = SubscriptionBackend(cli=str(cli)).complete_json(model=HAIKU, system="s", content=[], schema={}, effort="low", max_tokens=10)
-    assert r.data == {"ok": 1} and r.input_tokens == 60 and r.output_tokens == 7 and r.latency_ms == 900
+    content = [{"type": "text", "text": "x" * 400}]
+    r = SubscriptionBackend(cli=str(cli)).complete_json(model=HAIKU, system="", content=content, schema={}, effort="low", max_tokens=10)
+    # input tokens are estimated from what was sent (400 chars + "{}" ~= 100 tokens), not the CLI's multi-turn counters
+    assert r.data == {"ok": 1} and r.input_tokens == 100 and r.output_tokens == 7 and r.latency_ms == 900
     assert os.path.exists(cli)
+
+
+def test_image_token_estimate_matches_rule_of_thumb():
+    import cv2
+    import numpy as np
+
+    ok, buf = cv2.imencode(".jpg", np.zeros((432, 768, 3), np.uint8))
+    from camai.llm import image_tokens
+
+    assert abs(image_tokens(buf.tobytes()) - 768 * 432 // 750) <= 2
