@@ -73,28 +73,31 @@ def compute(site: Site, store: Store, night: date, now: datetime | None = None) 
             if status in ("visited", "missed"):
                 due += 1
                 visited += status == "visited"
-            if status == "missed":
-                missed_insights.append({
-                    "severity": "fyi",
-                    "text": f"{label}: {cp.name} not visited",
-                    "event_id": None,
-                })
             visits[cp.id] = {
                 "status": status,
                 "event_id": hits[0]["id"] if hits else None,
                 "at": hits[0]["ts"] if hits else None,
             }
         rounds.append({"label": label, "window": (w0, w1), "visits": visits})
+        missed = [cp.name for cp in g.checkpoints if visits[cp.id]["status"] == "missed"]
+        if missed:
+            text = (f"{label} missed: no checkpoint visited" if len(missed) == len(g.checkpoints)
+                    else f"{label}: {', '.join(missed)} not visited")
+            missed_insights.append({"severity": "fyi", "text": text, "event_id": None})
 
     insights = list(missed_insights)
-    # Longest stretch without a visit, per checkpoint, during the shift
-    for cp in g.checkpoints:
-        times = sorted(e["ts"] for e in visits_by_cam.get(cp.camera_id, []) if shift[0] <= e["ts"] <= shift[1])
-        marks = [shift[0], *times, min(shift[1], now or shift[1])]
-        gap = max((b - a for a, b in zip(marks, marks[1:], strict=False)), default=timedelta(0))
-        if gap >= timedelta(hours=4):
-            hours = gap.total_seconds() / 3600
-            insights.append({"severity": "fyi", "text": f"{cp.name} not visited for {hours:.0f} hours", "event_id": None})
+    # The longest stretch with no checkpoint visit at all during the shift
+    all_visits = sorted(e for cam in visits_by_cam.values() for e in cam if shift[0] <= e["ts"] <= shift[1])
+    marks = [shift[0], *[e["ts"] for e in all_visits], min(shift[1], now or shift[1])]
+    gaps = [(b - a, a, b) for a, b in zip(marks, marks[1:], strict=False)]
+    if gaps:
+        gap, a, b = max(gaps)
+        if gap >= timedelta(hours=3):
+            def hm(t):
+                return f"{t:%-I:%M%p}".replace("AM", "am").replace("PM", "pm")
+            insights.insert(0, {"severity": "needs_look" if gap >= timedelta(hours=6) else "fyi",
+                                "text": f"No checkpoint visited for {gap.total_seconds() / 3600:.0f} hours ({hm(a)} to {hm(b)})",
+                                "event_id": None})
     complete = [r for r in rounds if r["visits"] and all(v["status"] == "visited" for v in r["visits"].values())]
     for r in complete:
         insights.append({"severity": "guard", "text": f"{r['label']} complete: all {len(r['visits'])} checkpoints visited",

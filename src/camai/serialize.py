@@ -138,7 +138,8 @@ class Ctx:
 def site_out(site: Site, store: Store) -> dict:
     nights = sorted({str(night_of(e["ts"])) for e in store.events(site.id)} |
                     {str(night_of(r.start)) for c in site.cameras for r in c.recordings})
-    default = nights[-1] if nights else str(date.today())
+    # Demo sites open on the night their replay starts in; otherwise the latest night.
+    default = str(night_of(site.replay_start)) if site.replay_start else (nights[-1] if nights else str(date.today()))
     g = site.guards
     return {
         "id": site.id,

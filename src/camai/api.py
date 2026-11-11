@@ -350,7 +350,7 @@ def create_app(sites: list[Site], store: Store, media_root: Path, claude: Claude
             b = brief(ctx, n)
             open_incs = [i for i in b["incidents"] if i["status"] == "open"]
             unconf = sum(1 for i in open_incs if i["severity"] == UNCONFIRMED)
-            missed = len((b["patrol"] or {}).get("missed", []))
+            missed = sum(1 for x in (b["patrol"] or {}).get("missed", []) if "round" in x["text"])
             missing = sum(1 for a in b["assets"] if a["status"] == "missing")
             reasons = []
             if open_incs:
@@ -358,7 +358,7 @@ def create_app(sites: list[Site], store: Store, media_root: Path, claude: Claude
             if missing:
                 reasons.append(f"{missing} asset{'s' if missing > 1 else ''} missing")
             if missed:
-                reasons.append(f"{missed} missed patrol check{'s' if missed > 1 else ''}")
+                reasons.append(f"{missed} patrol round{'s' if missed > 1 else ''} missed")
             if b["health"]:
                 reasons.append(f"{len(b['health'])} camera issue{'s' if len(b['health']) > 1 else ''}")
             rows.append({
