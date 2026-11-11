@@ -147,7 +147,7 @@ function render(b) {
       <span class="time">${hm(e.ts)}</span><span>${esc(e.camera_name)}: ${esc(e.title)}</span><span class="mut">· ${esc(e.reasons[0])}</span></div>`).join("");
   document.getElementById("app").innerHTML = `
     <div class="card hero">
-      <div><div class="mut" style="font-size:12px">What happened overnight</div><h2>${esc(b.headline)}</h2>
+      <div><div class="mut" style="font-size:12px">While the site was armed</div><h2>${esc(b.headline)}</h2>
       <div class="mut" style="font-size:13px">${groups.length} incident${groups.length === 1 ? "" : "s"} to review · ${ignored.length} movement${ignored.length === 1 ? "" : "s"} checked and ignored</div></div>
       ${chip(b.status)}
     </div>
