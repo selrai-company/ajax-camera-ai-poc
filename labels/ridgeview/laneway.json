@@ -1,0 +1,14 @@
+{
+ "camera_id": "laneway",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 0.0,
+   "end": 68.0,
+   "what": "animal",
+   "should_flag": false,
+   "note": "fox rolls in foreground then trots into distance"
+  }
+ ]
+}

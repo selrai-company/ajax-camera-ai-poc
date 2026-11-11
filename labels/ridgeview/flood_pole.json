@@ -1,0 +1,14 @@
+{
+ "camera_id": "flood_pole",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 0.0,
+   "end": 34.8,
+   "what": "nuisance",
+   "should_flag": false,
+   "note": "snow blowing through the floodlight the whole clip"
+  }
+ ]
+}

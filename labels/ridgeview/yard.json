@@ -1,0 +1,21 @@
+{
+ "camera_id": "yard",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 1.0,
+   "end": 16.0,
+   "what": "person",
+   "should_flag": true,
+   "note": "person enters top left and walks across the far end"
+  },
+  {
+   "start": 23.0,
+   "end": 32.5,
+   "what": "person",
+   "should_flag": true,
+   "note": "person walks back toward the camera and exits bottom left"
+  }
+ ]
+}

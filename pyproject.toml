@@ -1,0 +1,43 @@
+[project]
+name = "camai"
+version = "0.1.0"
+description = "AI layer for a unified Ajax camera view: motion gate, Claude event descriptions, morning brief (proof of concept)"
+readme = "README.md"
+authors = [{ name = "Selr AI" }]
+requires-python = ">=3.14"
+dependencies = [
+    "anthropic>=2.8.0",
+    "fastapi>=0.162.4",
+    "jinja2>=3.1.6",
+    "numpy>=2.5.4",
+    "opencv-python-headless>=5.0.0.93",
+    "pydantic>=2.14.3",
+    "pyyaml>=6.0.3",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+camai = "camai.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]

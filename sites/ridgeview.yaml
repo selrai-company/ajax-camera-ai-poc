@@ -1,0 +1,48 @@
+# Demo site 1: an ordinary weeknight, armed overnight.
+# Stand-in footage (see footage/SOURCES.md). "simnight_" clips are daytime footage darkened to
+# imitate night IR; "night_" clips are real night footage.
+id: ridgeview
+name: Ridgeview Apartments, Stage 2 (demo)
+armed: {from: "18:00", to: "06:00"}
+notes: Building site, empty after hours. Armed 6pm to 6am.
+cameras:
+  - id: gate_road
+    name: Gate road
+    file: ../footage/cams/simnight_street_pickup.mp4
+    start: 2026-11-11T01:52:10
+    masks: [[0.62, 0.0, 0.38, 0.07]]          # burned-in timestamp
+  - id: yard
+    name: Yard
+    file: ../footage/cams/simnight_driveway_walker.mp4
+    start: 2026-11-11T02:13:40
+    masks: [[0.6, 0.0, 0.4, 0.08], [0.0, 0.92, 0.1, 0.08]]
+  - id: site_office
+    name: Site office door
+    file: ../footage/cams/simnight_porch_parcel.mp4
+    start: 2026-11-11T02:17:05
+    masks: [[0.6, 0.0, 0.4, 0.08]]
+    zones:
+      - {name: Deliveries drop-off, bbox: [0.4, 0.55, 0.35, 0.45], restricted: true}
+  - id: lunch_room
+    name: Lunch room door
+    file: ../footage/cams/simnight_porch_backpack.mp4
+    start: 2026-11-11T02:20:30
+    zones:
+      - {name: Deliveries drop-off, bbox: [0.3, 0.6, 0.4, 0.4], restricted: true}
+  - id: street
+    name: Street frontage
+    file: ../footage/cams/simnight_street_truck.mp4
+    start: 2026-11-10T23:41:00
+    masks: [[0.62, 0.0, 0.38, 0.07]]
+  - id: back_fence
+    name: Back fence (IR)
+    file: ../footage/cams/night_ir_coyotes.mp4
+    start: 2026-11-11T03:05:00
+  - id: laneway
+    name: Laneway
+    file: ../footage/cams/night_fox_alley.mp4
+    start: 2026-11-11T00:32:00
+  - id: flood_pole
+    name: Floodlight pole
+    file: ../footage/cams/night_snow.mp4
+    start: 2026-11-11T04:10:00

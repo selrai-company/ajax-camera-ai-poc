@@ -1,0 +1,35 @@
+# Demo site 2: closed for the weekend, so armed all day (from == to).
+# Same scenes as Ridgeview but the original daylight footage.
+id: hillcrest
+name: Hillcrest Civil depot, weekend shutdown (demo)
+armed: {from: "00:00", to: "00:00"}
+notes: Depot closed Saturday and Sunday. Armed all weekend.
+cameras:
+  - id: gate_road
+    name: Gate road
+    file: ../footage/cams/day_street_pickup.mp4
+    start: 2026-11-08T10:02:00
+    masks: [[0.62, 0.0, 0.38, 0.07]]
+  - id: yard
+    name: Yard
+    file: ../footage/cams/day_driveway_walker.mp4
+    start: 2026-11-08T13:47:20
+    masks: [[0.6, 0.0, 0.4, 0.08], [0.0, 0.92, 0.1, 0.08]]
+  - id: site_office
+    name: Site office door
+    file: ../footage/cams/day_porch_parcel.mp4
+    start: 2026-11-08T13:48:19
+    masks: [[0.6, 0.0, 0.4, 0.08]]
+    zones:
+      - {name: Deliveries drop-off, bbox: [0.4, 0.55, 0.35, 0.45], restricted: true}
+  - id: lunch_room
+    name: Lunch room door
+    file: ../footage/cams/day_porch_backpack.mp4
+    start: 2026-11-08T15:20:00
+    zones:
+      - {name: Deliveries drop-off, bbox: [0.3, 0.6, 0.4, 0.4], restricted: true}
+  - id: street
+    name: Street frontage
+    file: ../footage/cams/day_street_truck.mp4
+    start: 2026-11-08T11:30:00
+    masks: [[0.62, 0.0, 0.38, 0.07]]

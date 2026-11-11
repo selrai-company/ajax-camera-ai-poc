@@ -1,0 +1,21 @@
+{
+ "camera_id": "back_fence",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 0.0,
+   "end": 16.0,
+   "what": "animal",
+   "should_flag": false,
+   "note": "two coyotes cross, IR trail camera"
+  },
+  {
+   "start": 20.5,
+   "end": 25.0,
+   "what": "nuisance",
+   "should_flag": false,
+   "note": "small bright speck (insect/small animal)"
+  }
+ ]
+}
