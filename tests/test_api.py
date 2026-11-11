@@ -112,3 +112,25 @@ def test_gate_only_rerun_keeps_ai_reports(site, tmp_path):
     _, store, _ = _app(site, tmp_path)
     process_site(site, None, store, tmp_path / "media", log=lambda *_: None)
     assert all(e["report"] for e in store.events("test") if e["kind"] == "motion")
+
+
+def test_patrol_gap_with_several_visits_and_serious_gap_reaches_brief(guarded_site, tmp_path):
+    """Two guard visits used to crash the gap check (sorting dicts); a 6h+ gap must reach the brief."""
+    from datetime import datetime, time
+
+    from camai.patrols import compute
+    from camai.site import Camera, Recording
+
+    guard = {**PERSON_REPORT, "security_uniform": "yes", "activity": "patrolling"}
+    clip = guarded_site.cameras[0].recordings[0].file
+    # a second recording of the checkpoint camera 3 minutes later -> two guard visits in one shift
+    guarded_site.cameras[0].recordings.append(Recording(clip, datetime(2026, 11, 10, 2, 17)))
+    # a non-checkpoint camera with a guard sighting must not close a checkpoint gap
+    guarded_site.cameras.append(Camera(id="cam2", name="Lunch room", recordings=[Recording(clip, datetime(2026, 11, 10, 22, 0))]))
+    guarded_site.guards.shift_from, guarded_site.guards.shift_to = time(18, 0), time(6, 0)
+    c, store, _ = _app(guarded_site, tmp_path, guard)
+    p = compute(guarded_site, store, datetime(2026, 11, 9).date())
+    gap = next(i for i in p["insights"] if i["text"].startswith("No checkpoint visited"))
+    assert gap["severity"] == "needs_look" and "6:00pm to 2:14am" in gap["text"]  # cam2 at 10pm doesn't count
+    b = c.get("/api/v1/sites/test/brief").json()
+    assert any(x["severity"] == "needs_look" for x in b["patrol"]["missed"]) and b["status"] == "needs_look"

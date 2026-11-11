@@ -155,11 +155,13 @@ def create_app(sites: list[Site], store: Store, media_root: Path, claude: Claude
                 for s in insights.suggestions(ctx.site, store)]
         delivs = [ctx.event(e) for e in insights.deliveries(ctx.site, events)]
         open_incs = [i for i in incs if i["status"] == "open"]
-        if any(i["severity"] in (NEEDS_LOOK, UNCONFIRMED) for i in open_incs) or any(a["status"] == "missing" for a in assets):
+        patrol_issues = [x for x in (pat or {}).get("insights", []) if x["severity"] in ("fyi", "needs_look")]
+        if any(i["severity"] in (NEEDS_LOOK, UNCONFIRMED) for i in open_incs) or any(a["status"] == "missing" for a in assets) \
+                or any(x["severity"] == "needs_look" for x in patrol_issues):
             status = "needs_look"
         elif health:
             status = "camera_issue"
-        elif fyi or (pat and pat["insights"] and any(x["severity"] == "fyi" for x in pat["insights"])) or \
+        elif fyi or patrol_issues or \
                 any(not c["ok"] for c in lock):
             status = "fyi"
         else:
@@ -169,7 +171,7 @@ def create_app(sites: list[Site], store: Store, media_root: Path, claude: Claude
             findings = {
                 "incidents": [i["headline"] for i in open_incs],
                 "assets": [a["text"] for a in assets if a["status"] in ("missing", "arrived")],
-                "missed_patrols": [x["text"] for x in (pat or {}).get("insights", []) if x["severity"] == "fyi"],
+                "missed_patrols": [x["text"] for x in patrol_issues],
                 "lockup_problems": [f"{c['camera_name']}: {c['question']} -> {c['answer']}" for c in lock if not c["ok"]],
                 "camera_issues": [f"{h['camera_name']}: {h['note']}" for h in health],
                 "fyi": [o["title"] for o in fyi][:6],
@@ -190,7 +192,7 @@ def create_app(sites: list[Site], store: Store, media_root: Path, claude: Claude
             "incidents": incs, "fyi": fyi,
             "ignored": {"count": len(ignored), "reasons": dict(Counter(o["reasons"][0]["label"] for o in ignored))},
             "lockup": lock,
-            "patrol": {"coverage_pct": pat["coverage_pct"], "missed": [x for x in pat["insights"] if x["severity"] == "fyi"]}
+            "patrol": {"coverage_pct": pat["coverage_pct"], "missed": patrol_issues}
             if pat else None,
             "health": health, "est_cost_usd": round(cost, 4),
             "deliveries": delivs, "assets": assets, "repeat_vehicles": repeats, "suggestions": sugg,

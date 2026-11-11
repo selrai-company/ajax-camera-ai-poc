@@ -87,7 +87,9 @@ def compute(site: Site, store: Store, night: date, now: datetime | None = None) 
 
     insights = list(missed_insights)
     # The longest stretch with no checkpoint visit at all during the shift
-    all_visits = sorted(e for cam in visits_by_cam.values() for e in cam if shift[0] <= e["ts"] <= shift[1])
+    checkpoint_cams = {cp.camera_id for cp in g.checkpoints}
+    all_visits = sorted((e for cam_id, cam in visits_by_cam.items() if cam_id in checkpoint_cams for e in cam
+                         if shift[0] <= e["ts"] <= shift[1]), key=lambda e: e["ts"])
     marks = [shift[0], *[e["ts"] for e in all_visits], min(shift[1], now or shift[1])]
     gaps = [(b - a, a, b) for a, b in zip(marks, marks[1:], strict=False)]
     if gaps:
