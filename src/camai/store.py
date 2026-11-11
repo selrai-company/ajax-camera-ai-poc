@@ -79,7 +79,8 @@ class Store:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self.lock = threading.Lock()
+        # One connection shared by the API's worker threads: every read and write goes through this lock.
+        self.lock = threading.RLock()
         self.db.executescript(SCHEMA)
         self._migrate()
 
@@ -114,6 +115,14 @@ class Store:
             self.db.commit()
         return int(row[0])
 
+    def _all(self, q: str, args=()) -> list[sqlite3.Row]:
+        with self.lock:
+            return self.db.execute(q, args).fetchall()
+
+    def _one(self, q: str, args=()) -> sqlite3.Row | None:
+        with self.lock:
+            return self.db.execute(q, args).fetchone()
+
     def _event_row(self, r: sqlite3.Row) -> dict[str, Any]:
         d = dict(r)
         for k in JSON_COLS:
@@ -131,11 +140,10 @@ class Store:
         if end:
             q += " and ts < ?"
             args.append(end.isoformat())
-        rows = self.db.execute(q + " order by ts", args).fetchall()
-        return [self._event_row(r) for r in rows]
+        return [self._event_row(r) for r in self._all(q + " order by ts", args)]
 
     def event(self, event_id: int) -> dict[str, Any] | None:
-        r = self.db.execute("select * from events where id=?", (event_id,)).fetchone()
+        r = self._one("select * from events where id=?", (event_id,))
         return self._event_row(r) if r else None
 
     def set_dismissed(self, event_id: int, dismissed: bool = True) -> None:
@@ -169,7 +177,7 @@ class Store:
     def drop_incidents_except(self, site_id: str, night: str, keep_ids: list[int]) -> None:
         with self.lock:
             q = "select id from incidents where site_id=? and night=?"
-            stale = [r[0] for r in self.db.execute(q, (site_id, night)) if r[0] not in keep_ids]
+            stale = [r[0] for r in self.db.execute(q, (site_id, night)).fetchall() if r[0] not in keep_ids]
             for iid in stale:
                 self.db.execute("update events set incident_id=null where incident_id=?", (iid,))
                 self.db.execute("delete from incidents where id=?", (iid,))
@@ -180,10 +188,10 @@ class Store:
         if night:
             q += " and night=?"
             args.append(night)
-        return [self._incident_row(r) for r in self.db.execute(q + " order by start", args)]
+        return [self._incident_row(r) for r in self._all(q + " order by start", args)]
 
     def incident(self, incident_id: int) -> dict[str, Any] | None:
-        r = self.db.execute("select * from incidents where id=?", (incident_id,)).fetchone()
+        r = self._one("select * from incidents where id=?", (incident_id,))
         return self._incident_row(r) if r else None
 
     def _incident_row(self, r: sqlite3.Row) -> dict[str, Any]:
@@ -191,7 +199,7 @@ class Store:
         d["alarm"] = json.loads(d["alarm"]) if d["alarm"] else None
         d["start"] = datetime.fromisoformat(d["start"])
         d["end"] = datetime.fromisoformat(d["end"])
-        d["event_ids"] = [x[0] for x in self.db.execute("select id from events where incident_id=? order by ts", (d["id"],))]
+        d["event_ids"] = [x[0] for x in self._all("select id from events where incident_id=? order by ts", (d["id"],))]
         return d
 
     def set_incident_status(self, incident_id: int, status: str) -> None:
@@ -213,7 +221,7 @@ class Store:
             self.db.commit()
 
     def lockup(self, site_id: str, night: str) -> list[dict[str, Any]]:
-        rows = self.db.execute("select * from lockup where site_id=? and night=? order by id", (site_id, night))
+        rows = self._all("select * from lockup where site_id=? and night=? order by id", (site_id, night))
         out = []
         for r in rows:
             d = dict(r)
@@ -235,11 +243,11 @@ class Store:
         return int(cur.lastrowid)
 
     def rules(self, site_id: str) -> list[SuppressRule]:
-        rows = self.db.execute("select * from rules where site_id=? order by id", (site_id,)).fetchall()
+        rows = self._all("select * from rules where site_id=? order by id", (site_id,))
         return [SuppressRule(r["id"], r["camera_id"], r["activity"], r["hour_from"], r["hour_to"], r["note"]) for r in rows]
 
     def rule_rows(self, site_id: str) -> list[dict[str, Any]]:
-        return [dict(r) for r in self.db.execute("select * from rules where site_id=? order by id", (site_id,))]
+        return [dict(r) for r in self._all("select * from rules where site_id=? order by id", (site_id,))]
 
     def delete_rule(self, rule_id: int) -> None:
         with self.lock:
