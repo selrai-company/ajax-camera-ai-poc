@@ -1,0 +1,14 @@
+{
+ "camera_id": "lunch_room",
+ "held_out": true,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 1.0,
+   "end": 23.5,
+   "what": "person",
+   "should_flag": true,
+   "note": "person with backpack knocks, picks up parcel, walks off carrying it"
+  }
+ ]
+}

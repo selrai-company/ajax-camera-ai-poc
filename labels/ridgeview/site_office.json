@@ -1,0 +1,14 @@
+{
+ "camera_id": "site_office",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 7.0,
+   "end": 15.5,
+   "what": "person",
+   "should_flag": true,
+   "note": "person walks up, picks up the parcel at the door, leaves"
+  }
+ ]
+}

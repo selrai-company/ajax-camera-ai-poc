@@ -1,0 +1,14 @@
+{
+ "camera_id": "street",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 4.0,
+   "end": 17.0,
+   "what": "vehicle",
+   "should_flag": false,
+   "note": "delivery truck drives past toward camera; edit dissolve at 8-9 s"
+  }
+ ]
+}

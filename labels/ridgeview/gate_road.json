@@ -1,0 +1,35 @@
+{
+ "camera_id": "gate_road",
+ "held_out": false,
+ "labelled_by": "Claude (build agent), from 1-second contact sheets, before any model run",
+ "events": [
+  {
+   "start": 0.0,
+   "end": 2.5,
+   "what": "person",
+   "should_flag": true,
+   "note": "person walks across the foreground, left to right"
+  },
+  {
+   "start": 15.0,
+   "end": 18.5,
+   "what": "person",
+   "should_flag": true,
+   "note": "person walks right toward the street"
+  },
+  {
+   "start": 17.0,
+   "end": 41.5,
+   "what": "vehicle",
+   "should_flag": false,
+   "note": "SUV reverses into view with door open, waits, drives off (person gets in out of frame)"
+  },
+  {
+   "start": 44.0,
+   "end": 48.0,
+   "what": "vehicle",
+   "should_flag": false,
+   "note": "distant vehicle passes"
+  }
+ ]
+}
