@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from camai.checks import HaikuChecker
 from camai.llm import HAIKU, SONNET, Claude, Image, LLMError
 from camai.rules import activity_label
-from camai.site import Site, night_of, night_window
+from camai.site import Site, night_window
 from camai.store import Store
 
 INTERPRET_SCHEMA = {
@@ -92,8 +92,10 @@ def _to_dt(night: date, hhmm: str) -> datetime | None:
 def search(site: Site, store: Store, claude: Claude, q: str, night: date | None = None, top: int = 8) -> dict:
     cost = 0.0
     cams = [{"id": c.id, "name": c.name} for c in site.cameras]
-    nights_avail = sorted({night_of(e["ts"]) for e in store.events(site.id)})
-    night = night or (nights_avail[-1] if nights_avail else None)
+    if night is None:
+        from camai.serialize import site_out
+
+        night = date.fromisoformat(site_out(site, store)["default_night"])
     w0, w1 = night_window(night) if night else (None, None)
 
     try:
@@ -160,7 +162,9 @@ def search(site: Site, store: Store, claude: Claude, q: str, night: date | None 
             img_path = store_media_path(store, e)
             if img_path:
                 try:
-                    r = checker.check(f"Does this camera image show: {f['summary'] or q}?", ["yes", "no"],
+                    # Ask only about what a single picture can show (not times or places from the filters).
+                    things = ", ".join(f["subjects"] or f["keywords"][:4]) or q
+                    r = checker.check(f"Does this camera image show any of these: {things}?", ["yes", "no"],
                                       [Image.from_path(img_path)])
                     cost += r.est_cost_usd
                     check = "confirmed" if r.answer == "yes" else "not_confirmed"

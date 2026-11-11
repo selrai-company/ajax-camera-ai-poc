@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -72,7 +73,7 @@ def run_checks(site: Site, store: Store, claude: Claude, night: date, media_root
         ts = at(site.lockup_at)
         for chk in site.lockup_checks:
             cam = site.camera(chk.camera_id)
-            img = frame_at(cam, ts, media_root / site.id / cam.id / f"lockup_{night}_{abs(hash(chk.question)) % 10**6}.jpg")
+            img = frame_at(cam, ts, media_root / site.id / cam.id / f"lockup_{night}_{hashlib.sha1(chk.question.encode()).hexdigest()[:8]}.jpg")
             if img is None:
                 answer, why = "cant_tell", "No recording at lock-up time"
             else:
