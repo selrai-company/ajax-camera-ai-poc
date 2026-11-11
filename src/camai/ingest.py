@@ -88,7 +88,7 @@ class FileSource:
             cw, ch = max(16, int(w * iw)) // 2 * 2, max(16, int(h * ih)) // 2 * 2
             filters.append(f"crop={cw}:{ch}:{int(x * iw)}:{int(y * ih)}")
         filters.append(f"scale='min({max_width},iw)':-2")
-        t = max(0.0, min(t, self.info.duration - 0.05))
+        t = max(0.0, min(t, self.info.duration - 0.25))
         subprocess.run(
             [
                 "ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", str(self.path),

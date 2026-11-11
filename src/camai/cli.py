@@ -50,29 +50,54 @@ def cmd_process(a):
         process_site(site, _claude(a.no_ai), store, DATA / "media")
 
 
+def cmd_analyse(a):
+    from camai.analysis import analyse_site
+
+    store = _store()
+    claude = _claude(False)
+    for p in a.sites:
+        analyse_site(load_site(p), store, claude, DATA / "media")
+
+
+def _app(paths, no_ai=False):
+    from camai.api import create_app
+
+    return create_app([load_site(p) for p in paths], _store(), DATA / "media", _claude(no_ai))
+
+
 def cmd_brief(a):
-    from camai.brief import build_brief
+    from fastapi.testclient import TestClient
 
     site = load_site(a.site)
-    b = build_brief(site, _store(), _claude(a.no_ai))
+    c = TestClient(_app([a.site], a.no_ai))
+    b = c.get(f"/api/v1/sites/{site.id}/brief", params={"night": a.night} if a.night else None).json()
     if a.json:
         print(json.dumps(b, indent=1, default=str))
         return
-    print(f"{b['site']['name']}  [{b['status']}]\n{b['headline']}\n")
-    for e in b["events"]:
-        if e["severity"] != "ignore":
-            print(f"  {e['ts'][11:19]}  {e['severity']:<12} {e['camera_name']:<14} {e['title']}")
-    print(f"\nIgnored: {b['ignored_reasons']}\nEstimated API cost: ${b['est_api_cost_usd']:.4f}")
+    print(f"{site.name} - night of {b['night']}  [{b['status']}]\n{b['headline']}\n")
+    for i in b["incidents"]:
+        print(f"  INCIDENT {i['start'][11:16]}-{i['end'][11:16]} {i['severity']:<12} {i['headline']}")
+        if i["alarm"]:
+            print(f"           alarm: {i['alarm']['verdict_text']}")
+    for e in b["fyi"]:
+        print(f"  fyi      {e['start'][11:16]} {e['camera_name']:<20} {e['title']}")
+    for c_ in b["lockup"]:
+        print(f"  lock-up  {'ok ' if c_['ok'] else 'NO '} {c_['camera_name']:<20} {c_['question']} -> {c_['answer']}")
+    for x in b["assets"]:
+        print(f"  asset    {x['status']:<8} {x['text']}")
+    if b["patrol"]:
+        print(f"  patrol   coverage {b['patrol']['coverage_pct']}%  " + "; ".join(m["text"] for m in b["patrol"]["missed"]))
+    for r in b["repeat_vehicles"]:
+        print(f"  repeat   {r['text']}")
+    for h in b["health"]:
+        print(f"  camera   {h['camera_name']}: {h['note']}")
+    print(f"\nIgnored: {b['ignored']}\nEstimated API cost of the night's AI: ${b['est_cost_usd']:.4f}")
 
 
 def cmd_serve(a):
     import uvicorn
 
-    from camai.web import create_app
-
-    sites = [load_site(p) for p in a.sites]
-    app = create_app(sites, _store(), DATA / "media", _claude(a.no_ai))
-    uvicorn.run(app, host=a.host, port=a.port)
+    uvicorn.run(_app(a.sites, a.no_ai), host=a.host, port=a.port)
 
 
 def cmd_eval(a):
@@ -103,13 +128,18 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--fresh", action="store_true", help="Delete this site's stored events first")
     p.set_defaults(fn=cmd_process)
 
+    p = sub.add_parser("analyse", help="Re-run lock-up checks, escalation and incidents (no motion detection)")
+    p.add_argument("sites", nargs="+")
+    p.set_defaults(fn=cmd_analyse)
+
     p = sub.add_parser("brief", help="Print the morning brief for a site")
     p.add_argument("site")
+    p.add_argument("--night", help="YYYY-MM-DD, the date the night starts (default: latest)")
     p.add_argument("--json", action="store_true")
     p.add_argument("--no-ai", action="store_true")
     p.set_defaults(fn=cmd_brief)
 
-    p = sub.add_parser("serve", help="Serve the morning brief web page")
+    p = sub.add_parser("serve", help="Serve the app and the /api/v1 JSON API")
     p.add_argument("sites", nargs="+")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)

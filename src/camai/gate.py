@@ -43,6 +43,7 @@ class Event:
     peak_s: float = 0.0
     peak_area_frac: float = 0.0
     peak_bbox: BBox | None = None  # largest single moving blob at the busiest moment, for close-up crops
+    track: list[tuple[float, BBox]] = field(default_factory=list)  # (seconds, largest moving blob) per sampled frame
 
     @property
     def duration_s(self) -> float:
@@ -89,6 +90,7 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
     blanks: list[tuple[float, float]] = []
 
     cur: Event | None = None
+    moving: list[tuple[float, BBox]] = []
     persist = 0
     last_motion = 0.0
     last_t = 0.0
@@ -148,6 +150,7 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
                         s[cv2.CC_STAT_HEIGHT] / h,
                     ),
                 )
+            moving.append((t, tuple(round(float(v), 4) for v in big_box)))
             if persist >= cfg.persist_frames:
                 if cur is None:
                     start = t - (cfg.persist_frames - 1) / fps
@@ -190,6 +193,8 @@ def detect(frames: Iterable[tuple[float, np.ndarray]], fps: float, cfg: GateConf
         for e in events
         if e.duration_s >= cfg.min_event_s
     ]
+    for e in events:
+        e.track = [(round(t, 2), b) for t, b in moving if e.start_s <= t <= e.end_s]
     events += [Event(a, b, (0, 0, 1, 1), "global_change", a) for a, b in _runs(globals_, 2.0 / fps)]
     events += [Event(a, b, (0, 0, 1, 1), "blank_view", a) for a, b in blanks]
     return sorted(events, key=lambda e: e.start_s)
