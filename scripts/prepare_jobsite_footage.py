@@ -44,10 +44,12 @@ SOURCES = {
 VERT = "crop=iw:iw*9/16"  # centre-crop a vertical clip to 16:9
 # The theft clip (854x480): crop away the caption band (bottom) and the sheriff's logo (right),
 # keeping the 16:9 area where everything happens, then blur the burned-in clock (top left).
-SEPTIC_CLEAN = "crop=654:368:0:0,split[a][b];[b]crop=112:40:0:6,gblur=sigma=14[c];[a][c]overlay=0:6"
+SEPTIC_CLEAN = "crop=654:368:0:0,split[a][b];[b]crop=164:40:0:6,gblur=sigma=14[c];[a][c]overlay=0:6"
 # name -> (source, start, end or None, extra filter or None)
 SEGMENTS = {
-    "yard_theft": ("commons_septic_tank_theft.webm", 9.0, 98.0, SEPTIC_CLEAN),
+    # The original cuts between two cameras at 58.5 s: the yard, then the access road.
+    "yard_theft": ("commons_septic_tank_theft.webm", 9.0, 58.4, SEPTIC_CLEAN),
+    "yard_road": ("commons_septic_tank_theft.webm", 58.8, 98.0, SEPTIC_CLEAN),
     "yard_idle": ("commons_septic_tank_theft.webm", 9.0, 10.0,
                   SEPTIC_CLEAN + ",trim=end_frame=1,loop=loop=44:size=1,setpts=N/15/TB"),  # 3 s hold, yard before the theft
     "gate_idle": ("mixkit_31380.mp4", 0, 1.0, "trim=end_frame=1,loop=loop=44:size=1,setpts=N/15/TB"),  # 3 s hold of the empty gate

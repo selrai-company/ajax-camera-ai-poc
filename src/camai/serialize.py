@@ -15,6 +15,25 @@ def media_url(dir_: str | None, name: str | None) -> str | None:
     return f"/media/{dir_}/{name}" if dir_ and name else None
 
 
+WHY_FIRST = ["Site armed", "Ajax alarm", "Restricted zone", "Seen on", "Another camera went blank", "Machinery",
+             "Forcing entry", "Climbing a fence", "Loading a vehicle", "Tampering", "Carrying items", "people", "Person",
+             "Guard on shift", "No security clothing", "Security clothing seen, no guard"]
+
+
+def prioritise_why(why: list[dict]) -> list[dict]:
+    """De-duplicate, drop contradictions, and put the reasons that matter most first."""
+    labels = {r["label"] for r in why}
+    if "No security clothing seen" in labels:
+        why = [r for r in why if r["label"] != "Couldn't see security clothing"]
+    if any(r["label"].endswith(" people") for r in why):
+        why = [r for r in why if r["label"] != "Person"]
+
+    def rank(r):
+        return next((i for i, k in enumerate(WHY_FIRST) if k in r["label"]), len(WHY_FIRST))
+
+    return sorted(why, key=rank)
+
+
 class Ctx:
     """Per-request context: site, store, rules and cached verdicts."""
 
@@ -102,7 +121,8 @@ class Ctx:
         if len(cams) > 1:
             why.append({"label": f"Seen on {len(cams)} cameras", "source": "rule"})
         if inc.get("alarm"):
-            why.insert(1, {"label": "Ajax alarm", "source": "rule"})
+            why.append({"label": "Ajax alarm", "source": "rule"})
+        why = prioritise_why(why)
         cant = []
         for o in outs:
             for c in (o["report"] or {}).get("cant_tell", []):
@@ -149,6 +169,7 @@ def site_out(site: Site, store: Store) -> dict:
         "armed": {"from": f"{site.armed_from:%H:%M}", "to": f"{site.armed_to:%H:%M}", "all_day": site.all_day},
         "guarded": g is not None,
         "guard_shift": {"from": f"{g.shift_from:%H:%M}", "to": f"{g.shift_to:%H:%M}"} if g else None,
+        "guard_phone": g.phone if g else None,
         "nights": nights,
         "default_night": default,
         "replay_start": site.iso(site.replay_start) if site.replay_start else site.iso(night_window(date.fromisoformat(default))[0]),

@@ -19,7 +19,7 @@ from camai.describe import describe_event
 from camai.gate import Event
 from camai.ingest import FileSource
 from camai.llm import SONNET, Claude, Image, LLMError
-from camai.rules import NEEDS_LOOK, RANK, UNCONFIRMED, activity_label, evaluate
+from camai.rules import FYI, NEEDS_LOOK, RANK, UNCONFIRMED, activity_label, evaluate
 from camai.site import Camera, Site, night_of, night_window
 from camai.store import Store
 
@@ -34,7 +34,7 @@ HEADLINE_SCHEMA = {
 }
 
 HEADLINE_SYSTEM = """You write the one-sentence headline for a security incident on a job site, from camera event reports.
-- At most 22 words, plain English, Australian spelling, calm and factual. Include the time (e.g. 2:14am).
+- At most 18 words, plain English, Australian spelling, calm and factual. Include the time (e.g. 2:14am).
 - Say what was seen and where (camera names). If events are on several cameras, describe them as happening in the same time window; never claim it was the same person or vehicle.
 - Camera names say where something was seen; they are not objects in the scene (write "on the Car park camera", never "at the Car park camera").
 - Lead with the most serious event (forcing a gate or lock, loading or towing something, covering a camera) rather than the first one.
@@ -159,14 +159,38 @@ def _flagged(site: Site, store: Store, night: date) -> list[tuple[dict, object]]
     return out
 
 
+def _context(site: Site, store: Store, night: date, flagged: list) -> list[tuple[dict, object]]:
+    """FYI events on other cameras within 2 minutes of a flagged event while armed: same time window,
+    so they belong in the incident as context (they don't raise its severity)."""
+    start, end = night_window(night)
+    rules = store.rules(site.id)
+    ids = {e["id"] for e, _ in flagged}
+    out = []
+    for e in store.events(site.id, start, end):
+        if e["id"] in ids or e["dismissed"] or not e["report"] or not site.has_camera(e["camera_id"]):
+            continue
+        if not site.is_armed(e["ts"]):
+            continue
+        if not any(abs(e["ts"] - f["ts"]) <= CAMERA_DOWN_WINDOW or f["ts"] <= e["ts"] <= f["end_ts"] + CAMERA_DOWN_WINDOW
+                   for f, _ in flagged):
+            continue
+        v = evaluate(kind=e["kind"], report=e["report"], bbox=tuple(e["bbox"]), ts=e["ts"], site=site,
+                     camera=site.camera(e["camera_id"]), rules=rules)
+        if v.severity == FYI:
+            out.append((e, v))
+    return out
+
+
 def escalate_flagged(site: Site, store: Store, claude: Claude, night: date, media_root: Path, log=print) -> None:
-    for e, _ in _flagged(site, store, night):
+    flagged = _flagged(site, store, night)
+    for e, _ in [*flagged, *_context(site, store, night, flagged)]:
         if e["report"]:
             escalate(site, store, claude, e, media_root, log)
 
 
 def build_incidents(site: Site, store: Store, claude: Claude | None, night: date, log=print) -> None:
     flagged = _flagged(site, store, night)
+    flagged = sorted([*flagged, *_context(site, store, night, flagged)], key=lambda ev: ev[0]["ts"])
 
     groups: list[list[tuple[dict, object]]] = []
     for e, v in flagged:
